@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090e18"><title>Who Stole the Stairs?</title>
+<script src="runtime/brython.js"></script></head><body>
+<script type="text/python">
+try:
+    from browser import document, window
+except ModuleNotFoundError:
+    if __name__ != "__main__":
+        raise
+    from play import main
+    main()
+    raise SystemExit
+
+HALL = r"""                                      ___________
+                               _.----'_____|_____`----._
+                       _.----'  _.-'               `-._  `----._
+                 _.---'  _.--'                           `--._  `---._
+            _.--'  _.--'                                       `--._  `--._
+        _.-'  _.-'                                                   `-._  `-._
+     .-'  .-'                                                             `-.  `-.
+.-----------.       ____|______|____               ____|______|____       .-----------.
+[===========]                |,                             |             [===========]
+ \_________/                /,___                     ___|___              \_________/
+  | |   | |   .---------.  ,'        _.---[|]---._            .---------.   | |   | |
+  | |   | |   [=========]_|____  .-'  _.-' '`-._  `-.   ____|_[=========]   | |   | |
+  |   .   |    \_______/         .'  .'         `.  `.         \_______/    |   .   |
+  |   )   |     | | | |         /___/             \___\         | | | |     |   (   |
+  |  ( )  |     | | | |____|__  |   |             |   |  __|____| | | |     |  ( )  |
+  | ( * ) |     | | | |         |___|             |___|         | | | |     | ( * ) |
+  |  \|/  |     | | | |         |   |             |   |         | | | |     |  \|/  |
+  |  [=]  |     | | | | _|____  |___|             |___|  ____|_ | | | |     |  [=]  |
+  |   |   |    _|_|_|_|_        |   |             |   |        _|_|_|_|_    |   |   |
+  | |   | |   [_________] ___|__|___|_____________|___|__|___ [_________]   | |   | |
+  | |   | |       /        ________/_______|_______\________        \       | |   | |
+ _|_|___|_|_   /                 /                   \                 \   _|_|___|_|_
+[___________] _________________/_|___________________|_\_________________ [___________]
+         /                   /                           \                   \
+      /                    /                               \                    \
+___/_____________________/_________________|_________________\_____________________\___
+/                      /                                       \                      \
+""".rstrip("\n")
+
+BLAST_FRAMES = ['  *\n (o)',
+ ' .*\n (o)',
+ '  *\n (o)',
+ ' .\n (o)',
+ '  .\n (o)',
+ ' *\n(*)',
+ ' \\|/\n--*--\n /|\\',
+ '*  |  *\n-- * --\n*  |  *',
+ '.  *  .\n*     *\n.  *  .',
+ '.     .\n   *   \n.     .',
+ '·       ·\n    .    ',
+ '.         .',
+ '     .']
+
+AUTHOR_NOTE = ['Someone in my club got 92 COINS for Boba Drop. I took that personally, scrapped my '
+ 'game, and half an hour later my new plot was “a goblin stole the stairs.”',
+ 'One ASCII Motion gate, 16 sounds cut down to 6, and a 2 am coffee later, i had '
+ 'opinions on how fast the g in goblin should appear. I made the text type itself and '
+ 'the FIRST PERSON TO SKIP IT WAS ME.',
+ 'About 9 hours, including the restart. My school blocks Hackatime, so that’s my '
+ 'estimate. A solid hour went on a door made of slashes, and THEN i decided it had to '
+ 'zoom. At least the boom had a guide.',
+ 'Last time i asked for more coins i got a tie. So… 200 coins? *cough* must’ve been the '
+ 'goblin. PLEASE read the reviewer notes, i yapped about the whole thing there. Also, be '
+ 'honest… did you like the jumpscare?']
+
+SCENES = {
+    'fork': {
+        "room": 'The fork',
+        "text": 'A sign points left: GOBLIN WENT THIS WAY. Two deep scrape marks run right.',
+        "choices": [
+            ('follow grooves', 'chalk', 'You follow the grooves until they disappear under a door.'),
+            ('follow sign', 'signs', 'The arrow leads you to a cupboard full of identical signs.'),
+        ],
+    },
+    'signs': {
+        "room": 'Sign cupboard',
+        "text": 'A half-painted sign reads HONEST SHORTCUT. Through the thin wall you hear stone dragging along the other passage.',
+        "choices": [
+            ('go back', 'chalk', 'You double back and follow the scrape marks.'),
+            ('turn sign', 'chalk', 'You aim the sign at its own cupboard, then follow the grooves.'),
+        ],
+    },
+    'chalk': {
+        "room": 'The landing',
+        "text": 'A staircase symbol lies on the floor, its tip smudged white.',
+        "choices": [
+            ('inspect', 'door', 'Chalk comes off on your thumb. Someone behind the north door snorts, then whispers, “Ow. My finger.”'),
+            ('descend', 'door', 'Your knee meets stone. A laugh behind the north door turns into a squeak.', 7),
+        ],
+    },
+    'door': {
+        "room": 'North door',
+        "text": 'The laughter has stopped, but something heavy keeps knocking against the doorframe.',
+        "choices": [
+            ('open door', 'arch', 'The door swings inward about six inches.'),
+            ('listen', 'listen', '“Sideways,” mutters a goblin. “Everything fits sideways.”'),
+        ],
+    },
+    'listen': {
+        "room": 'North door',
+        "text": 'A green fingertip pokes out from under the door.',
+        "choices": [
+            ('open door', 'arch', 'You ease the door open.'),
+        ],
+    },
+    'arch': {
+        "room": 'The narrow arch',
+        "text": 'The staircase is wedged sideways in the arch, pinning the goblin’s finger.',
+        "choices": [
+            ('lift stairs', 'favor', 'He slides his finger free and gives it a grateful wiggle.'),
+            ('pull stairs', 'grudge', 'You both land on the floor. He counts his fingers twice.', 15),
+        ],
+    },
+    'grudge': {
+        "room": 'The narrow arch',
+        "text": 'He rubs his hand and pushes the staircase toward a drain.',
+        "choices": [
+            ('ask why', 'favor', "“All right, I'll tell you. Just stop pulling on things.”"),
+        ],
+    },
+    'favor': {
+        "room": 'The drain',
+        "text": "“Dropped my house key down there,” he says. “Thought I'd take the stairs.”",
+        "choices": [
+            ('look down', 'shaft', 'At the bottom of the shaft, a brass key catches the light.'),
+        ],
+    },
+    'shaft': {
+        "room": 'The drain',
+        "text": 'The goblin holds the working staircase over a hole half its width.',
+        "choices": [
+            ('lower stairs', 'stuck', 'The stone edges scrape. “Yeah, cheers, I tried that.”'),
+            ('take stairs', 'walk', 'He lets go. The stairs are yours again.'),
+            ('descend', 'below', 'You step onto the staircase while he’s still holding it.', 5),
+        ],
+    },
+    'stuck': {
+        "room": 'The drain',
+        "text": 'He turns it sideways again. The top step is right under your boot.',
+        "choices": [
+            ('descend', 'below', 'The dungeon redraws around you as you step down.', 5),
+            ('take stairs', 'walk', 'The goblin steps aside and lets you keep the stairs.'),
+        ],
+    },
+    'walk': {
+        "room": 'The passage',
+        "text": 'Your exit works again, but the goblin is still staring down the hole.',
+        "choices": [
+            ('walk away', 'alone', 'You leave with a perfectly good staircase. A paper bag tied to the rail reads LOST PROPERTY.'),
+            ('go back', 'shaft', 'You hand him the stairs and peer over the edge.'),
+        ],
+    },
+    'below': {
+        "room": 'Bottom of the shaft',
+        "text": 'The key is beside your boot. From above comes an offended “You can do that?”',
+        "choices": [
+            ('take key', 'climb', 'The brass key rings against your buckle.', 4),
+        ],
+    },
+    'climb': {
+        "room": 'Bottom of the shaft',
+        "text": 'The goblin flips the staircase around, and a way up appears beside you.',
+        "choices": [
+            ('climb', 'returnKey', 'You climb out with the key in your hand.'),
+        ],
+    },
+    'returnKey': {
+        "room": 'The drain',
+        "text": 'The goblin holds out his good hand.',
+        "choices": [
+            ('give key', 'together', 'He pockets the key and hands you a folded paper bag.'),
+        ],
+    },
+}
+
+
+STYLES = """
+*{box-sizing:border-box}
+:root{color-scheme:dark;font:100%/1.45 "Courier New",monospace;background:#090e18;color:#dee1e7}
+body{margin:0;min-height:100svh;display:grid;align-items:center}
+main{width:min(94%,64rem);margin:1.4rem auto}
+header{padding:.45rem 0}
+#home{text-align:center}
+#hall{width:max-content;margin:1.6rem auto 1.25rem;text-align:left;white-space:pre;font:400 min(1.74vw,1.04rem)/.94 "Courier New",monospace}
+main:has(#home:not([hidden])) header{display:none}
+h1{font:400 clamp(1.5rem,4vw,2.8rem)/1.1 "Courier New",monospace;letter-spacing:-.06em;margin:.5em 0 .28em}
+#home p{margin:.65rem 0}
+form{display:flex;align-items:baseline;gap:.65rem;margin:.95rem 0 .55rem;padding:.5rem .65rem;border:1px solid currentColor}
+input{border:none;outline:none;background:transparent;color:inherit;font:inherit;min-width:2ch;flex:1}
+label{cursor:text}footer{font-size:.92rem}
+#adventure{line-height:1.2}
+#log{height:clamp(10rem,60svh,34rem);overflow:auto;scrollbar-width:thin;overscroll-behavior:contain}
+#log p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+#log .echo{margin-block:1lh}
+h1,header,#log .location{text-transform:uppercase}
+#reveal{position:fixed;inset:0;background:#000;z-index:2}
+#reveal img{width:100%;height:100%;display:block;object-fit:contain}
+[hidden]{display:none!important}
+
+#home.entering{overflow:hidden}
+#home.entering #hall{transform-origin:50% 60%;animation:enter-gate .8s ease-in forwards}
+#home.entering :is(h1,p){visibility:hidden}
+@keyframes enter-gate{from{transform:scale(1)}to{transform:scale(10)}}
+#blast{position:fixed;inset:0;z-index:1;background:#090e18;display:grid;place-items:center}
+#sparks{margin:0;font:inherit;line-height:1;white-space:pre;text-align:center}
+@media(prefers-reduced-motion:reduce){#home.entering #hall{animation:none}}
+
+:root:has(.author-note){background:#000}
+#log .author-note{max-width:66ch}
+#log .author-note + .author-note{margin-top:.55em}
+"""
+
+
+def element(parent, tag, text="", **attrs):
+    node = document.createElement(tag)
+    for key, value in attrs.items():
+        node.setAttribute(key.replace("_", "-"), value)
+    node.textContent = text
+    parent.appendChild(node)
+    return node
+
+
+def build_screen():
+    element(document.head, "style", STYLES)
+    main = element(document.body, "main", id="terminal")
+    heading = element(main, "header", id="heading")
+    element(heading, "span", "@", aria_hidden="true")
+    heading.appendChild(document.createTextNode(" Who Stole the Stairs?"))
+    home = element(main, "section", id="home", aria_label="Dungeon entrance")
+    element(home, "pre", HALL, id="hall", role="img",
+            aria_label="Torchlit pillars beneath a broad stone arch, framing a recessed doorway and a flagstone path")
+    element(home, "h1", "Who Stole the Stairs?")
+    element(home, "p", "You’re @. The way down is >. A goblin just ran off with it.")
+    adventure = element(main, "section", id="adventure", aria_label="Game terminal", hidden="")
+    element(adventure, "div", id="log", role="log", aria_label="Terminal scrollback",
+            aria_live="polite", tabindex="0")
+    blast = element(main, "div", id="blast", hidden="", role="img",
+                    aria_label="A small bomb bursts and fades")
+    element(blast, "pre", id="sparks", aria_hidden="true")
+    form = element(main, "form", id="form")
+    element(form, "label", "Press Enter to enter the dungeon", id="prompt", **{"for": "cmd"})
+    element(form, "input", id="cmd", aria_label="Game command", autocomplete="off",
+            autocapitalize="off", spellcheck="false", enterkeyhint="go", maxlength="80")
+    element(main, "footer", id="controls")
+    reveal = element(document.body, "div", id="reveal", hidden="")
+    element(reveal, "img", src="receipt.png", alt="A grinning face fills the screen")
+
+
+class Line:
+    def __init__(self, text, kind, complete):
+        self.text = text
+        self.kind = kind
+        self.complete = complete
+        self.node = None
+        self.offset = 0
+
+
+class TextQueue:
+    def __init__(self, log, motion):
+        self.log = log
+        self.motion = motion
+        self.pending = []
+        self.frame = None
+        self.last_tick = 0
+
+    def write(self, text, kind="", complete=None, immediate=False):
+        self.pending.append(Line(text, kind, complete))
+        if immediate or self.motion.matches:
+            self.finish()
+        elif self.frame is None:
+            self.log.setAttribute("aria-busy", "true")
+            self.last_tick = window.performance.now()
+            self.draw(1)
+            if self.pending:
+                self.frame = window.requestAnimationFrame(self.tick)
+
+    def draw(self, count):
+        log = self.log
+        at_bottom = log.scrollHeight - log.clientHeight - log.scrollTop <= 3
+        while self.pending and count > 0:
+            line = self.pending[0]
+            if line.node is None:
+                line.node = element(log, "p")
+                line.node.className = line.kind
+            take = min(count, len(line.text) - line.offset)
+            line.offset += take
+            count -= take
+            line.node.textContent = line.text[:line.offset]
+            if line.offset == len(line.text):
+                self.pending.pop(0)
+                if line.complete:
+                    line.complete()
+        if at_bottom:
+            log.scrollTop = log.scrollHeight
+        if not self.pending:
+            log.setAttribute("aria-busy", "false")
+
+    def tick(self, now):
+        self.frame = None
+        count = int((now - self.last_tick) / 15)
+        if count > 0:
+            self.last_tick += count * 15
+            self.draw(count)
+        if self.pending:
+            self.frame = window.requestAnimationFrame(self.tick)
+
+    def finish(self):
+        if self.frame is not None:
+            window.cancelAnimationFrame(self.frame)
+            self.frame = None
+        self.draw(sum(len(line.text) - line.offset for line in self.pending))
+
+
+class Sound:
+    def __init__(self):
+        self.clips = {}
+        for number in (4, 5, 7, 14, 15, 17):
+            clip = document.createElement("audio")
+            clip.preload = "auto"
+            clip.src = f"audio/{number:02d}.mp3"
+            self.clips[number] = clip
+        self.music = self.clips[14]
+        self.music.volume = 0.04
+        self.music.loop = True
+        self.muted = False
+        self.effect = None
+
+    @staticmethod
+    def play(clip):
+        promise = clip.play()
+        if hasattr(promise, "catch"):
+            promise.catch(lambda *_: None)
+
+    @staticmethod
+    def stop(clip):
+        if clip is not None:
+            clip.pause()
+            clip.currentTime = 0
+
+    def cue(self, number):
+        self.stop(self.effect)
+        self.effect = self.clips[number]
+        self.effect.volume = 0.55
+        self.play(self.effect)
+
+    def set_muted(self, value):
+        self.muted = value
+        for clip in self.clips.values():
+            clip.muted = value
+
+
+class Dungeon:
+    def __init__(self):
+        build_screen()
+        self.input = document["cmd"]
+        self.log = document["log"]
+        self.motion = window.matchMedia("(prefers-reduced-motion: reduce)")
+        self.writer = TextQueue(self.log, self.motion)
+        self.sound = Sound()
+        self.timer = None
+        document["form"].bind("submit", self.on_submit)
+        document.bind("keydown", self.on_key)
+        document.bind("pointerup", self.start_music)
+        self.home()
+
+    def start_music(self, event=None):
+        music = self.sound.music
+        if self.mode in ("home", "briefing", "play") and not self.sound.muted and music.paused:
+            self.sound.play(music)
+
+    def home(self):
+        if self.timer is not None:
+            window.clearTimeout(self.timer)
+            self.timer = None
+        self.sound.stop(self.sound.effect)
+        self.sound.stop(self.sound.music)
+        self.mode = "home"
+        self.room = None
+        self.lifted = False
+        for name in ("blast", "reveal", "adventure"):
+            document[name].hidden = True
+        for name in ("heading", "controls", "home"):
+            document[name].hidden = False
+        document["home"].classList.remove("entering")
+        document["prompt"].textContent = "Press Enter to enter the dungeon"
+        document["controls"].textContent = "Type mute or unmute to control sound."
+        self.input.disabled = False
+        self.input.value = ""
+        self.input.focus()
+        self.start_music()
+
+    def line(self, text, kind="", complete=None):
+        self.writer.write(text, kind, complete, immediate=(self.mode == "home" or kind == "echo"))
+
+    def enter_gate(self):
+        self.start_music()
+        if self.motion.matches:
+            self.briefing()
+        else:
+            self.mode = "entering"
+            self.input.disabled = True
+            document["home"].classList.add("entering")
+            self.timer = window.setTimeout(self.briefing, 800)
+
+    def briefing(self):
+        self.mode = "briefing"
+        document["home"].classList.remove("entering")
+        document["home"].hidden = True
+        document["adventure"].hidden = False
+        self.input.disabled = False
+        self.input.focus()
+        self.line("At the dungeon entrance", "location")
+        self.line("From the dark comes a scrape, a thud, and a goblin whispering “Quiet!” to a flight of stairs.")
+        self.line("Follow the trail through the dungeon and bring back your only way down.")
+        document["prompt"].textContent = "Press Enter to follow the goblin"
+        document["controls"].textContent = "You can type mute, unmute or restart."
+
+    def show_scene(self, name):
+        self.room = name
+        scene = SCENES[name]
+        self.line(scene["room"], "location")
+        self.line(scene["text"])
+        self.line(" ".join(f"[{i}] {choice[0]}" for i, choice in enumerate(scene["choices"], 1)), "choices")
+
+    def choose(self, cmd):
+        choices = SCENES[self.room]["choices"]
+        for i, choice in enumerate(choices, 1):
+            label, destination, result, *sounds = choice
+            if cmd not in (str(i), label):
+                continue
+            self.line(result)
+            if label == "lift stairs":
+                self.lifted = True
+            if sounds:
+                self.sound.cue(sounds[0])
+            if destination in ("alone", "together"):
+                self.win(destination)
+            else:
+                self.show_scene(destination)
+            return
+        self.line("Try " + " or ".join(choice[0] for choice in choices) + ".")
+
+    def win(self, ending):
+        self.mode = "won"
+        self.sound.stop(self.sound.effect)
+        self.sound.stop(self.sound.music)
+        if ending == "together":
+            label = "HERO REWARD" if self.lifted else "FINGER DAMAGES SETTLED"
+            self.line(f"The label reads {label}.")
+        self.line("DUNGEON COMPLETE")
+        document["prompt"].textContent = "Press Enter to open the bag"
+
+    def open_bag(self):
+        self.mode = "reveal"
+        self.input.disabled = True
+        document["reveal"].hidden = False
+        self.sound.cue(17)
+        self.timer = window.setTimeout(self.thank_you, 2000)
+
+    def thank_you(self):
+        self.sound.stop(self.sound.effect)
+        document["reveal"].hidden = True
+        self.mode = "closing"
+        document["prompt"].textContent = ""
+        document["controls"].hidden = True
+        self.line("From behind the door: “That one usually works.”")
+        self.line("THANK YOU FOR PLAYING.", complete=self.queue_blast)
+
+    def queue_blast(self):
+        self.timer = window.setTimeout(self.play_blast, 1300)
+
+    def play_blast(self):
+        self.mode = "blast"
+        document["blast"].hidden = False
+        self.frame_index = 0
+        self.blast_frame()
+
+    def blast_frame(self):
+        if self.frame_index == len(BLAST_FRAMES):
+            self.author_note()
+            return
+        document["sparks"].textContent = BLAST_FRAMES[self.frame_index]
+        self.frame_index += 1
+        self.timer = window.setTimeout(self.blast_frame, 100)
+
+    def author_note(self):
+        self.mode = "done"
+        document["blast"].hidden = True
+        document["heading"].hidden = True
+        self.log.replaceChildren()
+        document["prompt"].textContent = "Type restart to play again"
+        self.input.value = ""
+        self.input.disabled = False
+        self.input.focus()
+        for paragraph in AUTHOR_NOTE:
+            self.line(paragraph, "author-note")
+
+    def submit(self, raw):
+        cmd = " ".join(raw.lower().split())
+        if self.mode in ("entering", "reveal", "closing", "blast"):
+            return
+        if self.mode == "done":
+            if cmd in ("", "restart"):
+                self.writer.finish()
+            if cmd == "restart":
+                self.log.replaceChildren()
+                self.home()
+            return
+
+        self.log.scrollTop = self.log.scrollHeight
+        if self.writer.pending:
+            self.writer.finish()
+            if not cmd:
+                return
+        self.line("> " + raw if raw else ">", "echo")
+        if cmd == "restart":
+            self.home()
+        elif cmd in ("mute", "unmute"):
+            self.sound.set_muted(cmd == "mute")
+            self.start_music()
+            message = ("Sound off. Type unmute to restore audio." if self.sound.muted
+                       else "Sound on. Type mute for silence.")
+            self.line(message)
+            if self.mode == "home":
+                document["controls"].textContent = message
+        elif self.mode == "home":
+            if cmd in ("", "start"):
+                self.enter_gate()
+            else:
+                document["controls"].textContent = "Press Enter with an empty prompt to start."
+        elif self.mode == "briefing":
+            if cmd in ("", "continue"):
+                self.mode = "play"
+                document["prompt"].textContent = ">"
+                document["controls"].textContent = "Type a command or its number, then press Enter. You can also type mute, unmute or restart."
+                self.start_music()
+                self.show_scene("fork")
+            else:
+                self.line("Press Enter to continue.")
+        elif self.mode == "won":
+            if cmd in ("", "open bag"):
+                self.open_bag()
+        elif self.mode == "play":
+            self.choose(cmd)
+
+    def on_submit(self, event):
+        event.preventDefault()
+        raw = self.input.value
+        self.input.value = ""
+        self.submit(raw)
+
+    def on_key(self, event):
+        focused = document.activeElement == self.input
+        if focused and not document["adventure"].hidden and event.key in ("PageUp", "PageDown"):
+            event.preventDefault()
+            direction = -1 if event.key == "PageUp" else 1
+            self.log.scrollTop += direction * self.log.clientHeight
+            return
+        if event.key == "Enter":
+            if event.repeat:
+                event.preventDefault()
+            elif not focused and self.mode in ("home", "briefing"):
+                event.preventDefault()
+                self.input.focus()
+                self.submit("")
+        self.start_music()
+
+
+game = Dungeon()
+
+</script></body></html>

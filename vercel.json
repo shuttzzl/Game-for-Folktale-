@@ -1,6 +1,5 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "python3 public/play.py --build",
+  "buildCommand": "python3 play.py --build && mkdir -p public/audio public/runtime && cp index.html receipt.png public/ && cp brython.js public/runtime/ && cp *.mp3 public/audio/",
   "outputDirectory": "public"
 }
